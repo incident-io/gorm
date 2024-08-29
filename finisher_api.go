@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"hash/maphash"
 	"reflect"
 	"strings"
 
@@ -514,8 +515,9 @@ func (db *DB) Scan(dest interface{}) (tx *DB) {
 }
 
 // Pluck queries a single column from a model, returning in the slice dest. E.g.:
-//     var ages []int64
-//     db.Model(&users).Pluck("age", &ages)
+//
+//	var ages []int64
+//	db.Model(&users).Pluck("age", &ages)
 func (db *DB) Pluck(column string, dest interface{}) (tx *DB) {
 	tx = db.getInstance()
 	if tx.Statement.Model != nil {
@@ -588,7 +590,8 @@ func (db *DB) Transaction(fc func(tx *DB) error, opts ...*sql.TxOptions) (err er
 	if committer, ok := db.Statement.ConnPool.(TxCommitter); ok && committer != nil {
 		// nested transaction
 		if !db.DisableNestedTransaction {
-			err = db.SavePoint(fmt.Sprintf("sp%p", fc)).Error
+			savepointID := new(maphash.Hash).Sum64()
+			err = db.SavePoint(fmt.Sprintf("sp%d", savepointID)).Error
 			if err != nil {
 				return
 			}
@@ -596,7 +599,7 @@ func (db *DB) Transaction(fc func(tx *DB) error, opts ...*sql.TxOptions) (err er
 			defer func() {
 				// Make sure to rollback when panic, Block error or Commit error
 				if panicked || err != nil {
-					db.RollbackTo(fmt.Sprintf("sp%p", fc))
+					db.RollbackTo(fmt.Sprintf("sp%d", savepointID))
 				}
 			}()
 		}
