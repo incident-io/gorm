@@ -1,6 +1,8 @@
 module gorm.io/gorm/tests
 
-go 1.18
+go 1.21
+
+toolchain go1.23.2
 
 require (
 	github.com/google/uuid v1.6.0
@@ -35,7 +37,5 @@ require (
 )
 
 replace gorm.io/gorm => ../
-
-replace github.com/jackc/pgx/v5 => github.com/jackc/pgx/v5 v5.4.3
 
 replace github.com/microsoft/go-mssqldb => github.com/microsoft/go-mssqldb v1.7.0

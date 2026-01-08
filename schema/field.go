@@ -920,7 +920,9 @@ func (field *Field) setupValuerAndSetter() {
 				// struct scanner
 				field.Set = func(ctx context.Context, value reflect.Value, v interface{}) (err error) {
 					reflectV := reflect.ValueOf(v)
-					if !reflectV.IsValid() || reflectV.Kind() == reflect.Ptr && reflectV.IsNil() {
+					if !reflectV.IsValid() {
+						field.ReflectValueOf(ctx, value).Set(reflect.New(field.FieldType).Elem())
+					} else if reflectV.Kind() == reflect.Ptr && reflectV.IsNil() {
 						field.ReflectValueOf(ctx, value).Set(reflect.New(field.FieldType).Elem())
 					} else if reflectV.Type().AssignableTo(field.FieldType) {
 						field.ReflectValueOf(ctx, value).Set(reflectV)
