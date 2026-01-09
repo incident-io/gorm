@@ -1,6 +1,7 @@
 package gorm
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -464,7 +465,7 @@ func (db *DB) Count(count *int64) (tx *DB) {
 
 		if len(tx.Statement.Selects) == 1 {
 			dbName := tx.Statement.Selects[0]
-			fields := strings.FieldsFunc(dbName, utils.IsValidDBNameChar)
+			fields := strings.FieldsFunc(dbName, utils.IsInvalidDBNameChar)
 			if len(fields) == 1 || (len(fields) == 3 && (strings.ToUpper(fields[1]) == "AS" || fields[1] == ".")) {
 				if tx.Statement.Parse(tx.Statement.Model) == nil {
 					if f := tx.Statement.Schema.LookUpField(dbName); f != nil {
@@ -563,7 +564,7 @@ func (db *DB) Pluck(column string, dest interface{}) (tx *DB) {
 	}
 
 	if len(tx.Statement.Selects) != 1 {
-		fields := strings.FieldsFunc(column, utils.IsValidDBNameChar)
+		fields := strings.FieldsFunc(column, utils.IsInvalidDBNameChar)
 		tx.Statement.AddClauseIfNotExists(clause.Select{
 			Distinct: tx.Statement.Distinct,
 			Columns:  []clause.Column{{Name: column, Raw: len(fields) != 1}},
@@ -673,11 +674,18 @@ func (db *DB) Begin(opts ...*sql.TxOptions) *DB {
 		opt = opts[0]
 	}
 
+	ctx := tx.Statement.Context
+	if db.DefaultTransactionTimeout > 0 {
+		if _, ok := ctx.Deadline(); !ok {
+			ctx, _ = context.WithTimeout(ctx, db.DefaultTransactionTimeout)
+		}
+	}
+
 	switch beginner := tx.Statement.ConnPool.(type) {
 	case TxBeginner:
-		tx.Statement.ConnPool, err = beginner.BeginTx(tx.Statement.Context, opt)
+		tx.Statement.ConnPool, err = beginner.BeginTx(ctx, opt)
 	case ConnPoolBeginner:
-		tx.Statement.ConnPool, err = beginner.BeginTx(tx.Statement.Context, opt)
+		tx.Statement.ConnPool, err = beginner.BeginTx(ctx, opt)
 	default:
 		err = ErrInvalidTransaction
 	}

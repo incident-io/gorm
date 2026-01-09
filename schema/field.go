@@ -319,9 +319,10 @@ func (schema *Schema) ParseField(fieldStruct reflect.StructField) *Field {
 	}
 
 	if val, ok := field.TagSettings["TYPE"]; ok {
-		switch DataType(strings.ToLower(val)) {
+		lowerVal := DataType(strings.ToLower(val))
+		switch lowerVal {
 		case Bool, Int, Uint, Float, String, Time, Bytes:
-			field.DataType = DataType(strings.ToLower(val))
+			field.DataType = lowerVal
 		default:
 			field.DataType = DataType(val)
 		}
@@ -448,16 +449,17 @@ func (schema *Schema) ParseField(fieldStruct reflect.StructField) *Field {
 }
 
 // create valuer, setter when parse struct
-func (field *Field) setupValuerAndSetter() {
+func (field *Field) setupValuerAndSetter(modelType reflect.Type) {
 	// Setup NewValuePool
 	field.setupNewValuePool()
 
 	// ValueOf returns field's value and if it is zero
 	fieldIndex := field.StructField.Index[0]
 	switch {
-	case len(field.StructField.Index) == 1 && fieldIndex > 0:
-		field.ValueOf = func(ctx context.Context, value reflect.Value) (interface{}, bool) {
-			fieldValue := reflect.Indirect(value).Field(fieldIndex)
+	case len(field.StructField.Index) == 1 && fieldIndex >= 0:
+		field.ValueOf = func(ctx context.Context, v reflect.Value) (interface{}, bool) {
+			v = reflect.Indirect(v)
+			fieldValue := v.Field(fieldIndex)
 			return fieldValue.Interface(), fieldValue.IsZero()
 		}
 	default:
@@ -504,9 +506,10 @@ func (field *Field) setupValuerAndSetter() {
 
 	// ReflectValueOf returns field's reflect value
 	switch {
-	case len(field.StructField.Index) == 1 && fieldIndex > 0:
-		field.ReflectValueOf = func(ctx context.Context, value reflect.Value) reflect.Value {
-			return reflect.Indirect(value).Field(fieldIndex)
+	case len(field.StructField.Index) == 1 && fieldIndex >= 0:
+		field.ReflectValueOf = func(ctx context.Context, v reflect.Value) reflect.Value {
+			v = reflect.Indirect(v)
+			return v.Field(fieldIndex)
 		}
 	default:
 		field.ReflectValueOf = func(ctx context.Context, v reflect.Value) reflect.Value {
@@ -958,6 +961,13 @@ func (field *Field) setupValuerAndSetter() {
 		serializerType := serializerValue.Type()
 		field.Set = func(ctx context.Context, value reflect.Value, v interface{}) (err error) {
 			if s, ok := v.(*serializer); ok {
+				if s.fieldValue == nil && s.Serializer == nil {
+					rv := field.ReflectValueOf(ctx, value)
+					if rv.IsValid() && rv.CanSet() {
+						rv.Set(reflect.Zero(field.FieldType))
+					}
+					return nil
+				}
 				if s.fieldValue != nil {
 					err = oldFieldSetter(ctx, value, s.fieldValue)
 				} else if err = s.Serializer.Scan(ctx, field, value, s.value); err == nil {
@@ -995,6 +1005,6 @@ func (field *Field) setupNewValuePool() {
 	}
 
 	if field.NewValuePool == nil {
-		field.NewValuePool = poolInitializer(reflect.PtrTo(field.IndirectFieldType))
+		field.NewValuePool = poolInitializer(reflect.PointerTo(field.IndirectFieldType))
 	}
 }
