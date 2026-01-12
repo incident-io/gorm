@@ -9,6 +9,14 @@ const (
 	OrWithSpace  = " OR "
 )
 
+// containsAndOr checks if a SQL string contains AND or OR operators surrounded by whitespace.
+// It normalizes all whitespace (space, tab, newline, etc.) to detect operators in multi-line strings.
+// The original SQL is not modified - this is only used for detection.
+func containsAndOr(sql string) bool {
+	normalized := strings.Join(strings.Fields(strings.ToUpper(sql)), " ")
+	return strings.Contains(normalized, AndWithSpace) || strings.Contains(normalized, OrWithSpace)
+}
+
 // Where where clause
 type Where struct {
 	Exprs []Expression
@@ -57,23 +65,19 @@ func buildExprs(exprs []Expression, builder Builder, joinCond string) {
 			case OrConditions:
 				if len(v.Exprs) == 1 {
 					if e, ok := v.Exprs[0].(Expr); ok {
-						sql := strings.ToUpper(e.SQL)
-						wrapInParentheses = strings.Contains(sql, AndWithSpace) || strings.Contains(sql, OrWithSpace)
+						wrapInParentheses = containsAndOr(e.SQL)
 					}
 				}
 			case AndConditions:
 				if len(v.Exprs) == 1 {
 					if e, ok := v.Exprs[0].(Expr); ok {
-						sql := strings.ToUpper(e.SQL)
-						wrapInParentheses = strings.Contains(sql, AndWithSpace) || strings.Contains(sql, OrWithSpace)
+						wrapInParentheses = containsAndOr(e.SQL)
 					}
 				}
 			case Expr:
-				sql := strings.ToUpper(v.SQL)
-				wrapInParentheses = strings.Contains(sql, AndWithSpace) || strings.Contains(sql, OrWithSpace)
+				wrapInParentheses = containsAndOr(v.SQL)
 			case NamedExpr:
-				sql := strings.ToUpper(v.SQL)
-				wrapInParentheses = strings.Contains(sql, AndWithSpace) || strings.Contains(sql, OrWithSpace)
+				wrapInParentheses = containsAndOr(v.SQL)
 			}
 		}
 
@@ -190,8 +194,7 @@ func (not NotConditions) Build(builder Builder) {
 				builder.WriteString("NOT ")
 				e, wrapInParentheses := c.(Expr)
 				if wrapInParentheses {
-					sql := strings.ToUpper(e.SQL)
-					if wrapInParentheses = strings.Contains(sql, AndWithSpace) || strings.Contains(sql, OrWithSpace); wrapInParentheses {
+					if wrapInParentheses = containsAndOr(e.SQL); wrapInParentheses {
 						builder.WriteByte('(')
 					}
 				}
@@ -225,8 +228,7 @@ func (not NotConditions) Build(builder Builder) {
 
 			e, wrapInParentheses := c.(Expr)
 			if wrapInParentheses {
-				sql := strings.ToUpper(e.SQL)
-				if wrapInParentheses = strings.Contains(sql, AndWithSpace) || strings.Contains(sql, OrWithSpace); wrapInParentheses {
+				if wrapInParentheses = containsAndOr(e.SQL); wrapInParentheses {
 					builder.WriteByte('(')
 				}
 			}

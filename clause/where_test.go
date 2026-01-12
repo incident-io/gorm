@@ -129,6 +129,136 @@ func TestWhere(t *testing.T) {
 			"SELECT * FROM `users` WHERE NOT ((`users`.`id` = ? AND `age` > ?) OR `score` < ?)",
 			[]interface{}{"1", 18, 100},
 		},
+		// Test single-line OR still works (space)
+		{
+			[]clause.Interface{clause.Select{}, clause.From{}, clause.Where{
+				Exprs: []clause.Expression{
+					clause.Eq{Column: "org_id", Value: "1"},
+					clause.Expr{SQL: "a = 1 OR b = 2"},
+				}}},
+			"SELECT * FROM `users` WHERE `org_id` = ? AND (a = 1 OR b = 2)",
+			[]interface{}{"1"},
+		},
+		// Test single-line AND still works (space)
+		{
+			[]clause.Interface{clause.Select{}, clause.From{}, clause.Where{
+				Exprs: []clause.Expression{
+					clause.Eq{Column: "org_id", Value: "1"},
+					clause.Or(clause.Expr{SQL: "a = 1 AND b = 2"}),
+				}}},
+			"SELECT * FROM `users` WHERE `org_id` = ? OR (a = 1 AND b = 2)",
+			[]interface{}{"1"},
+		},
+		// Test OR with newline after
+		{
+			[]clause.Interface{clause.Select{}, clause.From{}, clause.Where{
+				Exprs: []clause.Expression{
+					clause.Eq{Column: "org_id", Value: "1"},
+					clause.Expr{SQL: "a = 1 OR\nb = 2"},
+				}}},
+			"SELECT * FROM `users` WHERE `org_id` = ? AND (a = 1 OR\nb = 2)",
+			[]interface{}{"1"},
+		},
+		// Test OR with newline before
+		{
+			[]clause.Interface{clause.Select{}, clause.From{}, clause.Where{
+				Exprs: []clause.Expression{
+					clause.Eq{Column: "org_id", Value: "1"},
+					clause.Expr{SQL: "a = 1\nOR b = 2"},
+				}}},
+			"SELECT * FROM `users` WHERE `org_id` = ? AND (a = 1\nOR b = 2)",
+			[]interface{}{"1"},
+		},
+		// Test OR with tab after
+		{
+			[]clause.Interface{clause.Select{}, clause.From{}, clause.Where{
+				Exprs: []clause.Expression{
+					clause.Eq{Column: "org_id", Value: "1"},
+					clause.Expr{SQL: "a = 1 OR\tb = 2"},
+				}}},
+			"SELECT * FROM `users` WHERE `org_id` = ? AND (a = 1 OR\tb = 2)",
+			[]interface{}{"1"},
+		},
+		// Test OR with tab before
+		{
+			[]clause.Interface{clause.Select{}, clause.From{}, clause.Where{
+				Exprs: []clause.Expression{
+					clause.Eq{Column: "org_id", Value: "1"},
+					clause.Expr{SQL: "a = 1\tOR b = 2"},
+				}}},
+			"SELECT * FROM `users` WHERE `org_id` = ? AND (a = 1\tOR b = 2)",
+			[]interface{}{"1"},
+		},
+		// Test OR with carriage return
+		{
+			[]clause.Interface{clause.Select{}, clause.From{}, clause.Where{
+				Exprs: []clause.Expression{
+					clause.Eq{Column: "org_id", Value: "1"},
+					clause.Expr{SQL: "a = 1 OR\rb = 2"},
+				}}},
+			"SELECT * FROM `users` WHERE `org_id` = ? AND (a = 1 OR\rb = 2)",
+			[]interface{}{"1"},
+		},
+		// Test OR with form feed
+		{
+			[]clause.Interface{clause.Select{}, clause.From{}, clause.Where{
+				Exprs: []clause.Expression{
+					clause.Eq{Column: "org_id", Value: "1"},
+					clause.Expr{SQL: "a = 1 OR\fb = 2"},
+				}}},
+			"SELECT * FROM `users` WHERE `org_id` = ? AND (a = 1 OR\fb = 2)",
+			[]interface{}{"1"},
+		},
+		// Test OR with vertical tab
+		{
+			[]clause.Interface{clause.Select{}, clause.From{}, clause.Where{
+				Exprs: []clause.Expression{
+					clause.Eq{Column: "org_id", Value: "1"},
+					clause.Expr{SQL: "a = 1 OR\vb = 2"},
+				}}},
+			"SELECT * FROM `users` WHERE `org_id` = ? AND (a = 1 OR\vb = 2)",
+			[]interface{}{"1"},
+		},
+		// Test AND with newline
+		{
+			[]clause.Interface{clause.Select{}, clause.From{}, clause.Where{
+				Exprs: []clause.Expression{
+					clause.Eq{Column: "org_id", Value: "1"},
+					clause.Or(clause.Expr{SQL: "a = 1 AND\nb = 2"}),
+				}}},
+			"SELECT * FROM `users` WHERE `org_id` = ? OR (a = 1 AND\nb = 2)",
+			[]interface{}{"1"},
+		},
+		// Test multi-line with multiple whitespace characters
+		{
+			[]clause.Interface{clause.Select{}, clause.From{}, clause.Where{
+				Exprs: []clause.Expression{
+					clause.Eq{Column: "org_id", Value: "1"},
+					clause.Expr{SQL: "a = 1 OR\n\t  b = 2"},
+				}}},
+			"SELECT * FROM `users` WHERE `org_id` = ? AND (a = 1 OR\n\t  b = 2)",
+			[]interface{}{"1"},
+		},
+		// Test that ORACLE,ORPORATION etc. are not matched (OR must be surrounded by whitespace)
+		{
+			[]clause.Interface{clause.Select{}, clause.From{}, clause.Where{
+				Exprs: []clause.Expression{
+					clause.Eq{Column: "org_id", Value: "1"},
+					clause.Expr{SQL: "name = 'ORACLE'"},
+				}}},
+			"SELECT * FROM `users` WHERE `org_id` = ? AND name = 'ORACLE'",
+			[]interface{}{"1"},
+		},
+		// Test that ANDROID, COMMAND etc. are not matched (AND must be surrounded by whitespace)
+		{
+			[]clause.Interface{clause.Select{}, clause.From{}, clause.Where{
+				Exprs: []clause.Expression{
+					clause.Eq{Column: "org_id", Value: "1"},
+					clause.Expr{SQL: "name = 'ANDROID'"},
+				}}},
+			"SELECT * FROM `users` WHERE `org_id` = ? AND name = 'ANDROID'",
+			[]interface{}{"1"},
+		},
 	}
 
 	for idx, result := range results {
