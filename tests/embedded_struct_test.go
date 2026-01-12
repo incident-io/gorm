@@ -138,8 +138,8 @@ func TestEmbeddedPointerTypeStruct(t *testing.T) {
 		t.Errorf("Should find correct value for embedded pointer type")
 	}
 
-	if hnPost.Author != nil {
-		t.Errorf("Expected to get back a nil Author but got: %v", hnPost.Author)
+	if hnPost.Author == nil {
+		t.Errorf("Expected to get back a non-nil Author with zero values, but got nil")
 	}
 
 	now := time.Now().Round(time.Second)
